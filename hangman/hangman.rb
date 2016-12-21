@@ -1,4 +1,6 @@
 module Hangman
+  
+  require 'yaml'
 
   class Gameplay
   	def initialize(new_player)
@@ -8,15 +10,76 @@ module Hangman
   	end
 
   	def start_game
-      puts "Welcome to Hangman, #{@player.player_name}. Good luck!"
-      show_status
+      puts "\nWelcome to Hangman, #{@player.player_name}. Good luck!\n"
+      while @total_guesses > 0
+        show_status
+        puts "Save/Load your game? Type 'yes' to do so"
+        save_or_load if gets.chomp == 'yes'
+        puts "Guess a letter! Let's see if it matches."
+        guess_letter(gets.chomp)
+        winning_prompt if check_for_winner(@word.secret_word, @word.hidden_word.join(''))
+      end
+      puts "The hidden word was #{@word.secret_word}"
+      exit
   	end
 
   	def show_status
       puts "Your hidden word is...\n"
       puts @word.show_hidden_word
-      puts "And you have #{@total_guesses} guesses left"
+      puts "And you have #{@total_guesses} guesses left\n"
   	end
+
+  	def guess_letter(letter)
+      until letter.match(/^[[:alpha:]]$/) && letter.length == 1
+      	puts "Input is invalid. Try again."
+      	letter = gets.chomp
+      end
+      process_guess(@word.check_for_match(letter)) ? "\nYou guessed correct!" : "\nIncorrect guess."
+  	end
+
+  	def process_guess(correct)
+      if correct
+      	puts "\nYou guessed correct!"
+      else
+      	puts "\nIncorrect guess."
+      	@total_guesses -= 1
+      end
+  	end
+
+  	def check_for_winner(secret_word, letters_guessed)
+      if secret_word == letters_guessed
+      	true
+      end
+  	end
+
+  	def winning_prompt
+      puts "You won! You won! You won!"
+      exit
+  	end
+
+  	def save_or_load
+  	  puts "Type 'save' to save and 'load' to load"
+  	  choice = gets.chomp
+      if choice == 'save'
+        save_game
+      else
+        load_game
+      end
+  	end
+
+  	def save_game
+      Dir.mkdir('saved_games') unless Dir.exists? "saved_games"
+      file = "saved_games/saved.yaml"
+      File.open(file, "w+"){|f| f.puts YAML.dump(self) }
+      puts "Game saved."
+    end
+
+    def load_game
+      game_file = File.open("saved_games/saved.yaml")
+      yaml = game_file.read
+      game_loaded = YAML::load(yaml)
+      game_loaded.start_game
+	end
 
   end
 
@@ -46,7 +109,7 @@ module Hangman
   end
 
   class Word
-  	attr_reader :hidden_word
+  	attr_reader :hidden_word, :secret_word
 
     def initialize
       @dictionary = Dictionary.new
@@ -56,7 +119,7 @@ module Hangman
 
     def choose_random_word(word_array)
       random_num = rand(word_array.length)
-      word_array[random_num]
+      word_array[random_num].chomp
     end
 
     def show_hidden_word
